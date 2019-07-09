@@ -1,0 +1,41 @@
+* {
+	font-family: "Open Sans", sans-serif;
+}
+
+body {
+	background: #f0f0f0;
+	padding: 70px;
+}
+
+.black-bg, header, footer {
+	background: #202020;
+	text-align: center;
+}
+
+#pll-trainer {
+	background: white;
+	border-spacing: 0;
+	color: #FDFDFD;
+	margin: auto;
+	table-layout: fixed;
+	text-align: center;
+	vertical-align: middle;
+	width: 300px;
+}
+
+#alg-display {
+	color: black;
+	font-size: 100px;
+	font-weight: bold;
+	margin: 0px;
+	visibility: hidden;
+}
+
+#alg-btn {
+    background-color: #202020;
+    border: none;
+    color: #FDFDFD;
+    padding: 15px;
+    text-align: center;
+	width: 100%;
+}
