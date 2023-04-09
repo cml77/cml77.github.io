@@ -1,6 +1,5 @@
 /*jshint esversion:6*/
-
-$(function () {
+$(function() {
     const video = $("video")[0];
 
     var model;
@@ -13,10 +12,10 @@ $(function () {
                 facingMode: cameraMode
             }
         })
-        .then(function (stream) {
-            return new Promise(function (resolve) {
+        .then(function(stream) {
+            return new Promise(function(resolve) {
                 video.srcObject = stream;
-                video.onloadeddata = function () {
+                video.onloadeddata = function() {
                     video.play();
                     resolve();
                 };
@@ -29,27 +28,47 @@ $(function () {
         version: 1
     };
 
-    /*var clipboardText = '';
-    navigator.clipboard.readText()
-              .then(text => {
-                  clipboardText = text;
-                  //ctx.lineWidth = color_hash.includes(text) ? 32: 4;
-                //console.log("Text from clipboard:", text);
-              })
-              .catch(err => {
-                alert("Failed to read text from clipboard:" + err);
-              });*/
+    var clipboardText = '-';
+//    setInterval(function() {
+      /*navigator.clipboard.readText()
+        .then(text => {
+            clipboardText = text;
+            alert(text);
+            //ctx.lineWidth = color_hash.includes(text) ? 32: 4;
+            //console.log("Text from clipboard:", text);
+        })
+        .catch(err => {
+            alert("Failed to read text from clipboard:" + err);
+        });*/
+//    }, 3000);
 
-    const loadModelPromise = new Promise(function (resolve, reject) {
+    /*setInterval(function() {
+      var clipboardData = window.clipboardData || undefined;
+      if (clipboardData && clipboardData.getData) {
+        clipboardText = clipboardData.getData('Text');
+        alert(clipboardText);
+      }
+    }, 3000);*/
+
+    document.addEventListener('paste', function(event) {
+        // Handle the paste event
+        var clipboardData = event.clipboardData || window.clipboardData;
+        clipboardText = clipboardData.getData('text');
+        console.log(clipboardText);
+        //alert(clipboardText);
+    });
+
+
+    const loadModelPromise = new Promise(function(resolve, reject) {
         roboflow
             .auth({
                 publishable_key: publishable_key
             })
             .load(toLoad)
-            .then(function (m) {
+            .then(function(m) {
                 model = m;
                 model.configure({
-                    threshold: 0.5,
+                    threshold: 0.75,
                     overlap: 0.05,
                     max_objects: 20
                 });
@@ -57,7 +76,7 @@ $(function () {
             });
     });
 
-    Promise.all([startVideoStreamPromise, loadModelPromise]).then(function () {
+    Promise.all([startVideoStreamPromise, loadModelPromise]).then(function() {
         $("body").removeClass("loading");
         resizeCanvas();
         detectFrame();
@@ -91,11 +110,11 @@ $(function () {
         };
     }
 
-    $(window).resize(function () {
+    $(window).resize(function() {
         resizeCanvas();
     });
 
-    const resizeCanvas = function () {
+    const resizeCanvas = function() {
         $("canvas").remove();
 
         canvas = $("<canvas/>");
@@ -127,63 +146,79 @@ $(function () {
 
     var color_hash = '';
     var yes = '';
+
     function get_color_hash(predictions) {
-      color_hash = '';
-      for (let i = 0; i < predictions.length; i++) {
-        if (predictions[i]['class'] !== 'Face') {
-          color_hash += predictions[i]['class'][0];
+        color_hash = '';
+        for (let i = 0; i < predictions.length; i++) {
+            if (predictions[i]['class'] !== 'Face') {
+                color_hash += predictions[i]['class'][0];
+            }
         }
-      }
-      return color_hash;
+        return color_hash;
     }
 
     function remove_faces(predictions) {
-      // Use filter method to create a new array of predictions without any items with class 'Face'
-      const predictions_without_face = predictions.filter(pred => pred['class'] !== 'Face');
+        // Use filter method to create a new array of predictions without any items with class 'Face'
+        const predictions_without_face = predictions.filter(pred => pred['class'] !== 'Face');
 
-      // Create a new object with the updated list of predictions
-//      return {'predictions': predictions_without_face};
-      return predictions_without_face;
+        // Create a new object with the updated list of predictions
+        //      return {'predictions': predictions_without_face};
+        return predictions_without_face;
     }
 
-    const sort_normalize_y = function (predictions) {
-    //function sort_normalize_y(predictions) {
-      // Define the range within which y coordinates will be considered the same
-      const y_range = 10;
+    const sort_normalize_y = function(predictions) {
+        //function sort_normalize_y(predictions) {
+        // Define the range within which y coordinates will be considered the same
+        const y_range = 10;
 
-      // Sort the predictions by y coordinate, then by x coordinate
-      const sorted_predictions = predictions.sort((a, b) => {
-        if (a.bbox.y === b.bbox.y) {
-          return a.bbox.x - b.bbox.x;
-        } else {
-          return a.bbox.y - b.bbox.y;
+        // Sort the predictions by y coordinate, then by x coordinate
+        const sorted_predictions = predictions.sort((a, b) => {
+            if (a.bbox.y === b.bbox.y) {
+                return a.bbox.x - b.bbox.x;
+            } else {
+                return a.bbox.y - b.bbox.y;
+            }
+        });
+
+        // Set the initial y coordinate to the y coordinate of the first prediction
+        //      let previous_y = sorted_predictions[0]['y'];
+        let previous_y = sorted_predictions[0].y;
+
+        // Iterate over the sorted predictions and change the y coordinate if it is within the given range
+        for (let i = 0; i < sorted_predictions.length; i++) {
+            const pred = sorted_predictions[i];
+            if (Math.abs(pred.bbox.y - previous_y) <= y_range) {
+                pred.bbox.y = previous_y;
+            } else {
+                previous_y = pred.bbox.y;
+            }
         }
-      });
 
-      // Set the initial y coordinate to the y coordinate of the first prediction
-//      let previous_y = sorted_predictions[0]['y'];
-      let previous_y = sorted_predictions[0].y;
-
-      // Iterate over the sorted predictions and change the y coordinate if it is within the given range
-      for (let i = 0; i < sorted_predictions.length; i++) {
-        const pred = sorted_predictions[i];
-        if (Math.abs(pred.bbox.y - previous_y) <= y_range) {
-          pred.bbox.y = previous_y;
-        } else {
-          previous_y = pred.bbox.y;
-        }
-      }
-
-      // console.log(sorted_predictions);
-      return sorted_predictions;
+        // console.log(sorted_predictions);
+        return sorted_predictions;
     };
 
 
-/////////////////inference////////////////////////////////
-    const renderPredictions = function (predictions) {
+    function isSquare(prediction) {
+        const ratio = prediction.bbox.width / prediction.bbox.height;
+        return Math.abs(ratio - 1) < 0.2; // assuming a square ratio of 1:1
+    }
+
+    function isHashMatch(color_hash) {
+        return clipboardText != null && clipboardText.trim() !== ''
+                && color_hash.includes(clipboardText);
+    }
+
+    /////////////////inference////////////////////////////////
+    const renderPredictions = function(predictions) {
         //console.log(predictions);
+        if(clipboardText != null && clipboardText.trim() !== ''
+                && color_hash.includes(clipboardText)) return;
+
+        //isHashMatch(color_hash) return;
 
         predictions = remove_faces(predictions);
+//        predictions = predictions.filter(isSquare);
         predictions = sort_normalize_y(predictions);
         /*predictions = predictions.sort((a, b) => {
             if (a.bbox.y === b.bbox.y) {
@@ -218,7 +253,7 @@ $(function () {
         ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
         let i = -1;
-        predictions.forEach(function (prediction) {
+        predictions.forEach(function(prediction) {
             const x = prediction.bbox.x;
             const y = prediction.bbox.y;
 
@@ -226,10 +261,13 @@ $(function () {
             const height = prediction.bbox.height;
 
             // Draw the bounding box.
-//            ctx.strokeStyle = prediction.color;
+            //            ctx.strokeStyle = prediction.color;
             ctx.strokeStyle = prediction.class;
-            ctx.lineWidth = color_hash.includes('OYGGWBBOR') ? 32: 4;
-//            ctx.lineWidth = color_hash.includes(clipboardText) ? 32: 4;
+            //            ctx.lineWidth = color_hash.includes('OYGGWBBOR') ? 32: 4;
+
+            ctx.lineWidth = (clipboardText != null && clipboardText.trim() !== ''
+                && color_hash.includes(clipboardText)) ? 32 : 4;
+//            ctx.lineWidth = isHashMatch(color_hash) ? 32 : 4;
 
             ctx.strokeRect(
                 (x - width / 2) / scale,
@@ -239,7 +277,7 @@ $(function () {
             );
 
             // Draw the label background.
-//            ctx.fillStyle = prediction.color;
+            //            ctx.fillStyle = prediction.color;
             ctx.fillStyle = prediction.class;
             const textWidth = ctx.measureText(prediction.class).width;
             const textHeight = parseInt(font, 10); // base 10
@@ -251,11 +289,7 @@ $(function () {
             );
         });
 
-        predictions.forEach(function (prediction) {
-//        for(let j =0; j< predictions.length; j++) {
-//            prediction = predictions[j];
-//        for (let xx = 1; xx < predictions.length; xx++) {
-//            const prediction = predictions[xx];
+        predictions.forEach(function(prediction) {
             i += 1;
             const x = prediction.bbox.x;
             const y = prediction.bbox.y;
@@ -267,7 +301,7 @@ $(function () {
             ctx.font = font;
             ctx.textBaseline = "top";
             ctx.fillStyle = "#000000";
-            ctx.fillText(i+':'+
+            ctx.fillText(i + ':' +
                 prediction.class,
                 (x - width / 2) / scale + 4,
                 (y - height / 2) / scale + 1
@@ -277,12 +311,12 @@ $(function () {
 
     var prevTime;
     var pastFrameTimes = [];
-    const detectFrame = function () {
+    const detectFrame = function() {
         if (!model) return requestAnimationFrame(detectFrame);
 
         model
             .detect(video)
-            .then(function (predictions) {
+            .then(function(predictions) {
                 requestAnimationFrame(detectFrame);
                 renderPredictions(predictions);
 
@@ -291,12 +325,13 @@ $(function () {
                     if (pastFrameTimes.length > 30) pastFrameTimes.shift();
 
                     var total = 0;
-                    _.each(pastFrameTimes, function (t) {
+                    _.each(pastFrameTimes, function(t) {
                         total += t / 1000;
                     });
 
                     var fps = pastFrameTimes.length / total;
-                    $("#fps").text(Math.round(fps));
+//                    $("#fps").text(Math.round(clipboardText));
+                    $("#fps").text(clipboardText);
 //                    $("#fps").text(color_hash.includes('OYGGWBBOR') ? "YESSSSSSSSSSSSSSSSSSSS!!": color_hash);
 
 //                    if (color_hash.includes('OYGGWBBOR')) yes = 'yes';
@@ -305,7 +340,7 @@ $(function () {
                 }
                 prevTime = Date.now();
             })
-            .catch(function (e) {
+            .catch(function(e) {
                 console.log("CAUGHT", e);
                 requestAnimationFrame(detectFrame);
             });
