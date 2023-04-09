@@ -62,5 +62,6 @@ body:after {
 }
 
 #fps:after {
-    content: " fps";
+    content: "";
+    /*content: " fps";*/
 }
